@@ -1,8 +1,8 @@
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const otpGenerator = require('otp-generator')
-const bcrypt= require('bcrypt');
-const jwt=require('jsonwebtoken')
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken')
 
 //otpSend
 
@@ -185,50 +185,78 @@ exports.login = async (req, res) => {
 
         //data fetch from request ki body
 
-        const {email, password}= req.body;
+        const { email, password } = req.body;
 
         //validations run karenge
 
-        if( !email||!password){
+        if (!email || !password) {
             return res.status(400).json(
                 {
-                    success:false,
-                    message:"All Fields are required Please fill details correctly"
+                    success: false,
+                    message: "All Fields are required Please fill details correctly"
                 }
             )
         }
         //check if user already exists
 
-        const user=await User.findOne({email});
+        const user = await User.findOne({ email });
 
-        if(!user){
+        if (!user) {
             return res.status(400).json(
                 {
-                    success:true,
-                    message:"User does not exist. Please signup first"
+                    success: true,
+                    message: "User does not exist. Please signup first"
                 }
             )
         }
         //compare password
 
-        if(! await bcrypt.compare(password,user.password)){
-          
+        if (! await bcrypt.compare(password, user.password)) {
+
             return res.status(400).json(
                 {
-                    success:false,
+                    success: false,
                     message: "Password does not match"
                 }
             )
         }
 
-        const token=jwt
-
+        const payload = {
+            email: user.email,
+            id: user._id,
+            role: user.accountType
+        }
+       
         //token generate
+
+         const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: "2h",
+        })
+
+        user.token = token;
+        user.password = undefined;
 
         //create cookie and send password
 
-    } catch (err) {
+        const options={
+            expires:new Date(Date.now()+3*24*60*60*1000), 
+            httpOnly:true
+        }
+        res.cookie("token", token, options).status(200).json(
+            {
+                success:true,
+                token,user,
+                message:"User sucessfully logged in"
+            }
+        )
 
+    } catch (err) {
+        res.status(500).json(
+            {
+                success:false,
+                error:err.message
+            }
+        )
 
     }
 }
